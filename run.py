@@ -9,6 +9,32 @@ import json
 NUM_PREPROCESSING_WORKERS = 2
 
 
+def dump_jsonl(data, output_path, append=False):
+    """
+    Write list of objects to a JSON lines file.
+    """
+    mode = 'a+' if append else 'w'
+    with open(output_path, mode, encoding='utf-8') as f:
+        for line in data:
+            json_record = json.dumps(line, ensure_ascii=False)
+            f.write(json_record + '\n')
+    print('Wrote {} records to {}'.format(len(data), output_path))
+
+def convert_snli_tojson(ds):
+    ds = ds.data['train']
+    ds = ds.to_pydict()
+    results = []
+    for premise, hypothesis, label in zip(ds['premise'], ds['hypothesis'], ds['label']):
+        result = {}
+        result['premise'] = premise
+        result['hypothesis'] = hypothesis
+        result['label'] = label
+        if label < 0 or label > 2:
+            continue
+        results.append(result)
+    dump_jsonl(results, 'snli_out.jsonl')
+
+
 def main():
     argp = HfArgumentParser(TrainingArguments)
     # The HfArgumentParser object collects command-line arguments into an object (and provides default values for unspecified arguments).
@@ -97,7 +123,9 @@ def main():
     if dataset_id == ('snli',):
         # remove SNLI examples with no label
         dataset = dataset.filter(lambda ex: ex['label'] != -1)
-    
+        convert_snli_tojson(dataset)
+
+
     train_dataset = None
     eval_dataset = None
     train_dataset_featurized = None
